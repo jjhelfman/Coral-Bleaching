@@ -1,0 +1,44 @@
+﻿import sys
+sys.version
+import arcpy
+help(arcpy)
+import arcgis
+import os, tempfile
+from urllib import request
+# Download JSON file from NOAA website url = 'https://coralreefwatch.noaa.gov/product/vs/vs_polygons.json' temp_dir = tempfile.mkdtemp() filename = os.path.join(temp_dir, 'latest_data.json') response = request.urlretrieve(url, filename)
+print(filename)
+# Return the JSON object from the file import json with open(filename) as json_file:     data_raw = json.load(json_file)
+# After creating a Temp folder on your C drive, Create a FGDB and set it as your default workspace os.mkdir(r'C:\Temp')
+# After creating a Temp folder on your C drive, Create a FGDB and set it as your default workspace os.mkdir(r'C:\Coral_Temp')
+arcpy.management.CreateFileGDB(r'C:\Temp', 'Live.gdb') arcpy.env.workspace = os.path.join(r'C:\Temp', 'Live.gdb')
+# Create dicts with geometry:feature values data_stations = dict(type=data_raw['type'], features=[]) data_areas = dict(type=data_raw['type'], features=[])
+data_stations
+# Load features from the JSON file into the dicts, depending on geometry type
+# Points go into data_stations, the rest (Polygon, MultiPolygon) go into data_areas! for feat in data_raw['features']:     if feat['geometry']['type'] == 'Point':         data_stations['features'].append(feat)     else: # elif feat['geometry']['type'] in ['MultiPolygon', 'Polygon']:                 data_areas['features'].append(feat)
+data_stations[1]
+data_stations[1][1]
+data_stations.get()
+data_stations.get('Point')
+print(data_stations.get('Point'))
+first_data_stations = list(data_stations.values())[0]
+first_data_stations
+first_data_stations_value = list(data_stations.values())[1]
+first_data_stations_value
+# Explore the dict's 'features'list len(data_stations['features'])
+# Check the properties and name of the 10th feature in data_areas (changing periodically) data_areas['features'][9]['properties']['name']
+data_areas['features'][9]['geometry']['coordinates']
+# The coordinates attribute of the feature returned all of the polygon's vertices! # Convert these dicts containing JSON into JSON files via json.dump() # Filenames of temp json files  stations_json_path = os.path.join(temp_dir, 'points.json') areas_json_path = os.path.join(temp_dir, 'polygons.json') # Save dictionaries into json files with open(stations_json_path, 'w') as point_json_file:     json.dump(data_stations, point_json_file, indent=4) with open(areas_json_path, 'w') as poly_json_file:     json.dump(data_areas, poly_json_file, indent=4)
+# Check that the files were saved at each path print(stations_json_path)
+print(areas_json_path)
+# Convert the JSON files into feature classes arcpy.conversion.JSONToFeatures(stations_json_path, 'alert_stations')  arcpy.conversion.JSONToFeatures(areas_json_path, 'alert_areas')
+# Add alert_level field arcpy.management.AddField('alert_stations', 'alert_level', 'SHORT', field_alias='Alert Level') arcpy.management.AddField('alert_areas', 'alert_level', 'SHORT', field_alias='Alert Level')
+# Calculate alert_level field arcpy.management.CalculateField('alert_stations', 'alert_level', "int(!alert!)") arcpy.management.CalculateField('alert_areas', 'alert_level', "int(!alert!)")
+# Create Project and Map objects p = arcpy.mp.ArcGISProject("CURRENT") m = p.listMaps('Map')[0]
+# Define a var for the Point layer (0 since listed first on top/enabled) points_lyr = m.listLayers('alert_*')[0] points_sym = points_lyr.symbology
+# Always change to the GraduatedSymbolsRenderer from the SimpleRenderer # Break data into four classes if points_sym.renderer.type != 'SimpleRenderer':     points_sym.updateRenderer('SimpleRenderer') points_sym.updateRenderer('GraduatedSymbolsRenderer') points_sym.renderer.classificationField = 'alert_level' points_sym.renderer.breakCount = 4
+# Set labels, upperbounds for class breaks, sizes and color gradation points_labels = ['0 - 1', '> 1 - 2', '> 2 - 3', '> 3 - 4'] points_upperBounds = [1, 2, 3, 4] points_sizes = [6, 16.50, 27, 37.50]  layers_colors = [{'RGB': [5, 113, 176, 40]}, {'RGB': [146, 197, 222, 50]},                    {'RGB': [244, 165, 130, 50]}, {'RGB': [202, 0, 32, 30]}]
+# Apply the sizes and colors specified for each of the four classes using placeholder var i for i in range(4):     item = points_sym.renderer.classBreaks[i]     item.symbol.applySymbolFromGallery('Circle', 1)     item.label = points_labels[i]     item.upperBound = points_upperBounds[i]     item.symbol.size = points_sizes[i]     item.symbol.color = layers_colors[i]
+# Update the point layer's symbology points_lyr.symbology = points_sym
+# Create vars for the polygon layer and its symbology polygons_lyr = m.listLayers('alert_*')[1] # I would pass the exact name or other specific prop instead polygons_sym = polygons_lyr.symbology
+# Update the Renderer to make graduated color symbology, like for the last point layer if polygons_sym.renderer.type != 'SimpleRenderer':     polygons_sym.updateRenderer('SimpleRenderer')  polygons_sym.updateRenderer('GraduatedColorsRenderer') polygons_sym.renderer.classificationField = 'alert_level' polygons_sym.renderer.breakCount = 4  polygons_labels = ['0 - 1', '> 1 - 2', '> 2 - 3', '> 3 - 4'] polygons_upperBounds = [1, 2, 3, 4] layers_colors = [{'RGB': [5, 113, 176, 40]}, {'RGB': [146, 197, 222, 50]},                    {'RGB': [244, 165, 130, 50]}, {'RGB': [202, 0, 32, 30]}]
+# Set and update the polygon layer's symbology, including labels (interesting how this is separate from another Class like LabelClass (which is for different label classes!)) for i in range(4):     item = polygons_sym.renderer.classBreaks[i]     item.label = polygons_labels[i]     item.upperBound = polygons_upperBounds[i]     item.symbol.color = layers_colors[i]  # Update polygons_lyr.symbology = polygons_sym

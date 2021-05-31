@@ -1,0 +1,1 @@
+This repo contains exercises from ArcGIS Lesson here: https://learn.arcgis.com/en/projects/update-real-time-data-with-python/ 
