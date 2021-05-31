@@ -4,7 +4,7 @@ import datetime as dt
 from urllib import request
 from urllib.error import URLError
 
-def feedRoutine (url, workGDB, itemid, original_sd_file, service_name, username, password):
+def feedRoutine (url, workGDB, itemid, original_sd_file, service_name, arcgis_url, username, password):
     # Configure and format (define var) the log file
     logging.basicConfig(filename="coral_reef_exercise.log", level=logging.INFO)
     log_format = "%Y-%m-%d %H:%M:%S"
@@ -70,7 +70,7 @@ def feedRoutine (url, workGDB, itemid, original_sd_file, service_name, username,
     # Deployment Logic
     print("Deploying...")
     logging.info("Deploying... {0}".format(dt.datetime.now().strftime(log_format)))
-    deployLogic(workGDB, itemid, original_sd_file, service_name, username, password)
+    deployLogic(workGDB, itemid, original_sd_file, service_name, arcgis_url, username, password)
 
     # Close the Log File
     logging.shutdown()
@@ -81,11 +81,9 @@ def feedRoutine (url, workGDB, itemid, original_sd_file, service_name, username,
     return True
 
 # In Aggregated Live Feed (ALF) methodology, the deployment logic process is the part of the feed roputine that grabs the latest data from the internet (our WorkGDB) and overwrites the live data (Live.gdb has the layers in our ArcGIS Pro project!)
-def deployLogic(workGDB, itemid, original_sd_file, service_name, username, password):
-    # Get the feature service to be updated (arcgis.com is default URL anyway)
-    
-    gis = GIS(url='https://arcgis.com', username=username, password=password) # cmd prompt asks for password
-    
+def deployLogic(workGDB, itemid, original_sd_file, service_name, arcgis_url, username, password):
+    # Get the feature service to be updated (arcgis.com is default URL anyway, but this arcgis_url var is from user input 
+    gis = GIS(url=arcgis_url, username=username, password=password) # cmd prompt asks for password
     print("Successfully logged in as: " + gis.properties.user.username)
     item = gis.content.get(itemid)
     sd_file_name = os.path.basename(original_sd_file)
@@ -128,7 +126,8 @@ if __name__ == "__main__":
     # Get the URL and FGDB path from cmd prompt args (2nd and remaining args, should be only 2)
     # 2nd arg should be C:\Temp\Work.gdb
     print('Starting main program')
-    username = input('Enter the username for the AGOL or Portal account: ')
+    arcgis_url = input('Enter the URL for the AGOL or Portal web page: ') # The arcgis_url can be AGOL (https://arcgis.com) or a Portal url (http://webadaptorhost (the server).domainname.com/webadaptorname (arcgis is default name))
+    username = input('Enter the case-sensitive username for the AGOL or Portal account: ')
     password = input('Enter the password for the AGOL or Portal account: ')
     [url, workGDB, itemid, original_sd_file, service_name] = sys.argv[1:] # URL to NOAA's data is https://coralreefwatch.noaa.gov/product/vs/vs_polygons.json (from day before today usually) ## The test URL is historic data from 02-19-2019, https://downloads.esri.com/LearnArcGIS/update-real-time-data-with-python/vs_polygons.json
-    feedRoutine (url, workGDB, itemid, original_sd_file, service_name, username, password)
+    feedRoutine (url, workGDB, itemid, original_sd_file, service_name, arcgis_url, username, password)
